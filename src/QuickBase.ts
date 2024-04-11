@@ -1,4 +1,4 @@
-import { QuickPick, QuickPickItem, Range, Selection, TextEditor, commands, window } from "vscode";
+import { QuickPick, QuickPickItem, Range, Selection, TextEditor, TextEditorRevealType, commands, window } from "vscode";
 
 const selectionStyle = window.createTextEditorDecorationType({
   border: "solid",
@@ -68,7 +68,7 @@ export abstract class QuickPickBase<TQuickItem extends AQuickItem> {
 
     const item = items[0];
     this._editor.setDecorations(selectionStyle, [item.range]);
-    this._editor.revealRange(item.range);
+    this._editor.revealRange(item.range, TextEditorRevealType.InCenter);
   }
 
   private _onDidChangeAccept(): any {

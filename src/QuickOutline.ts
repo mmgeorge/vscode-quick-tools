@@ -73,6 +73,10 @@ export class QuickOutlineItem extends AQuickItem {
     return this._symbol.kind;
   }
 
+  get lineNumber(): number {
+    return this._symbol.location.range.start.line;
+  }
+
   get label(): string {
     const lineNumber = pad(this._symbol.location.range.start.line.toString());
     // Only include pathing if we are in the outline view
@@ -119,6 +123,13 @@ export class QuickOutlineItem extends AQuickItem {
       child.collapseAll();
     }
   }
+
+  *allNestedChildren(): IterableIterator<QuickOutlineItem> {
+    for (const child of this.children) {
+      yield child;
+      yield* child.allNestedChildren();
+    }
+  }
 }
 
 export class QuickOutline extends QuickPickBase<QuickOutlineItem> {
@@ -145,7 +156,18 @@ export class QuickOutline extends QuickPickBase<QuickOutlineItem> {
       .map(symbol => QuickOutlineItem.tryCreate(symbol, document))
       .filter(x => x) as QuickOutlineItem[]
 
-    this._update()
+    const closet = this._getClosestItem(
+      this._editor.selection.start,
+      Array.from(this.items()))
+
+    this._update(closet)
+  }
+
+  * items(): IterableIterator<QuickOutlineItem> {
+    for (const item of this._items) {
+      yield item;
+      yield* item.allNestedChildren();
+    }
   }
 
   private _items: QuickOutlineItem[];
@@ -244,7 +266,30 @@ export class QuickOutline extends QuickPickBase<QuickOutlineItem> {
     this._update(activeItem);
   }
 
-  private _update(activeItem?: QuickOutlineItem): void {
+  private _getClosestItem(position: Position, items: readonly QuickOutlineItem[]): QuickOutlineItem | null {
+    let closestItem: QuickOutlineItem | null = null;
+    let closestLineDist = Infinity;
+
+    for (const item of items) {
+      const line = item.lineNumber;
+      const lineDist = Math.abs(position.line - line);
+
+      if (!closestItem) {
+        closestItem = item;
+        closestLineDist = lineDist;
+        continue;
+      }
+
+      if (lineDist <= closestLineDist) {
+        closestItem = item;
+        closestLineDist = lineDist;
+      }
+    }
+
+    return closestItem;
+  }
+
+  private _update(activeItem?: QuickOutlineItem | null): void {
     let items = this._extractExpandedItems(this._items);
     if (this._filter.size) {
       items = items.filter(item => this._filter.has(item.symbolKind))
